@@ -1,0 +1,412 @@
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>ZEYMIR STARS (zeynebimi çok seviyorum btw)</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#101329;font-family:Arial,sans-serif;touch-action:none}
+#game{position:fixed;inset:0}
+canvas{display:block;width:100%;height:100%}
+#hud{position:absolute;inset:0;pointer-events:none;color:white}
+#top{display:flex;justify-content:space-between;padding:15px;align-items:flex-start}
+.panel{background:#11182dcc;border:2px solid #ffffff35;border-radius:14px;padding:10px 14px;font-weight:bold;text-shadow:0 2px 3px #000}
+#healthBox{position:absolute;top:70px;left:50%;transform:translateX(-50%);width:150px;text-align:center}
+#healthBg{height:12px;background:#333;border-radius:20px;overflow:hidden;margin-top:5px}
+#health{height:100%;width:100%;background:#38ed76;transition:width .15s}
+#controls{position:absolute;bottom:20px;left:0;right:0;height:165px;pointer-events:none}
+#joystick{position:absolute;left:25px;bottom:10px;width:125px;height:125px;border-radius:50%;background:#ffffff20;border:3px solid #ffffff55;pointer-events:auto;touch-action:none}
+#stick{position:absolute;left:50%;top:50%;width:53px;height:53px;transform:translate(-50%,-50%);border-radius:50%;background:#e5e9ff;border:3px solid #7b82ff;box-shadow:0 3px 10px #0008}
+.actions{position:absolute;right:22px;bottom:5px;display:flex;align-items:flex-end;gap:12px;pointer-events:auto}
+.action{border:3px solid #ffffff70;border-radius:50%;color:white;font-weight:900;text-shadow:0 2px 3px #000;box-shadow:0 5px 12px #0008;touch-action:none}
+#shoot{width:78px;height:78px;background:#ed594c;font-size:15px}
+#super{width:62px;height:62px;background:#a34ce9;font-size:12px}
+#menu,#result{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(145deg,#10152beF,#24164beF);color:white;text-align:center;padding:20px}
+#result{display:none}
+.card{width:min(370px,95vw);padding:28px 20px;border:2px solid #ffffff38;border-radius:25px;background:#171e39ed;box-shadow:0 15px 45px #0009}
+.logo{font-size:37px;font-weight:1000;letter-spacing:2px;color:#ffe45c;text-shadow:0 4px 0 #a84c18,0 0 20px #ffb52e}
+.subtitle{color:#cbd2ff;margin:12px 0 24px}
+.mainBtn{border:0;border-radius:14px;background:linear-gradient(90deg,#ffb52e,#ff654d);padding:16px 30px;color:#24152b;font-size:19px;font-weight:900;width:100%;margin-top:10px}
+.small{font-size:12px;color:#aeb8e8;margin-top:18px;line-height:1.6}
+#message{position:absolute;top:120px;left:0;right:0;text-align:center;font-size:18px;font-weight:bold;text-shadow:0 2px 5px #000}
+@media(min-width:700px){#joystick{left:45px;width:145px;height:145px}#controls{bottom:30px}#shoot{width:90px;height:90px}}
+</style>
+</head>
+<body>
+<div id="game"></div>
+
+<div id="menu">
+ <div class="card">
+  <div class="logo">ZEYMIR STARS</div>
+  <div class="subtitle">⭐ 3D ARENA SAVAŞI ⭐</div>
+  <p>Rakiplerini yen, hayatta kal ve kupaları kazan!</p>
+  <button class="mainBtn" id="start">OYUNA BAŞLA</button>
+  <div class="small">Sol joystick: Hareket<br>ATEŞ: Rakiplere saldır<br>SÜPER: Güçlü saldırı</div>
+ </div>
+</div>
+
+<div id="result">
+ <div class="card">
+  <div class="logo" id="resultTitle">OYUN BİTTİ</div>
+  <p id="resultText">Tekrar denemeye hazır mısın?</p>
+  <button class="mainBtn" id="again">TEKRAR OYNA</button>
+ </div>
+</div>
+
+<div id="hud">
+ <div id="top">
+  <div class="panel">💎 <span id="score">0</span></div>
+  <div class="panel">🏆 <span id="trophy">0</span></div>
+ </div>
+ <div id="healthBox" class="panel">
+  CAN <span id="hpText">100</span>
+  <div id="healthBg"><div id="health"></div></div>
+ </div>
+ <div id="message"></div>
+ <div id="controls">
+  <div id="joystick"><div id="stick"></div></div>
+  <div class="actions">
+   <button class="action" id="super">SÜPER</button>
+   <button class="action" id="shoot">ATEŞ</button>
+  </div>
+ </div>
+</div>
+
+<script type="module">
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
+
+const root=document.getElementById("game");
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x91d9f4);
+scene.fog=new THREE.Fog(0x91d9f4,25,55);
+
+const camera=new THREE.PerspectiveCamera(48,innerWidth/innerHeight,.1,100);
+camera.position.set(0,19,17);
+camera.lookAt(0,0,0);
+
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+root.appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xffffff,0x637a9d,2));
+const sun=new THREE.DirectionalLight(0xffffff,2.2);
+sun.position.set(-8,16,10);
+sun.castShadow=true;
+scene.add(sun);
+
+const mat=(color,roughness=.8)=>new THREE.MeshStandardMaterial({color,roughness});
+const floorMat=mat(0x4baf70);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(34,34),floorMat);
+floor.rotation.x=-Math.PI/2;
+floor.receiveShadow=true;
+scene.add(floor);
+
+// Arena zemini desenleri
+const grid=new THREE.GridHelper(34,17,0x277e53,0x6bc58b);
+grid.position.y=.015;
+scene.add(grid);
+
+// Sınırlar
+const wallMat=mat(0x49617d);
+function box(x,y,z,sx,sy,sz,material=wallMat){
+ const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),material);
+ m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;scene.add(m);return m;
+}
+box(0,.7,-17,34,1.4,1);
+box(0,.7,17,34,1.4,1);
+box(-17,.7,0,1,1.4,34);
+box(17,.7,0,1,1.4,34);
+
+// Engeller
+const obstacles=[
+ [-6,-5,3,2],[5,-6,2,3],[-7,5,3,2],[7,5,3,2],
+ [0,-8,3,2],[0,8,3,2],[-10,0,2,3],[10,0,2,3]
+];
+obstacles.forEach(([x,z,w,d],i)=>{
+ const color=i%2?0x9c754e:0x667c9a;
+ box(x,.65,z,w,1.3,d,mat(color));
+ const top=box(x,1.34,z,w+.12,.12,d+.12,mat(0xd0b58a));
+});
+
+// Karakter üretimi
+function makeCharacter(color,detail){
+ const g=new THREE.Group();
+ const body=new THREE.Mesh(new THREE.SphereGeometry(.62,24,18),mat(color));
+ body.scale.set(1,1.05,.9);body.position.y=.72;body.castShadow=true;g.add(body);
+ const belly=new THREE.Mesh(new THREE.SphereGeometry(.36,18,14),mat(detail));
+ belly.position.set(0,.62,.43);belly.scale.set(1,.85,.4);g.add(belly);
+ const head=new THREE.Mesh(new THREE.SphereGeometry(.43,24,18),mat(color));
+ head.position.set(0,1.25,.05);head.castShadow=true;g.add(head);
+ const eyeMat=new THREE.MeshStandardMaterial({color:0xffffff});
+ const pupil=mat(0x172033);
+ for(const x of [-.16,.16]){
+  const eye=new THREE.Mesh(new THREE.SphereGeometry(.085,12,12),eyeMat);
+  eye.position.set(x,1.3,.42);g.add(eye);
+  const p=new THREE.Mesh(new THREE.SphereGeometry(.04,10,10),pupil);
+  p.position.set(x,1.3,.49);g.add(p);
+ }
+ const gun=box(0,.85,.75,.23,.22,.7,mat(0x33394e));
+ gun.rotation.x=.1;g.add(gun);
+ return g;
+}
+
+const player=makeCharacter(0x3488ff,0xb8e8ff);
+scene.add(player);
+player.position.set(0,0,0);
+
+let bots=[],bullets=[],gems=[];
+let hp=100,score=0,trophies=0,playing=false;
+let joystick={x:0,y:0};
+let shooting=false,superReady=true;
+let lastShot=0,lastDamage=0;
+let clock=new THREE.Clock();
+
+function makeBot(x,z){
+ const b=makeCharacter(0xef594c,0xffd2a6);
+ b.position.set(x,0,z);
+ b.userData={hp:60,hit:0,shootTimer:Math.random()*2};
+ scene.add(b);bots.push(b);
+}
+function spawnBots(){
+ bots.forEach(b=>scene.remove(b));
+ bots=[];
+ [[-11,-10],[11,-10],[-11,10],[11,10],[0,-12],[0,12]].forEach(p=>makeBot(...p));
+}
+function makeGem(x,z){
+ const g=new THREE.Mesh(new THREE.OctahedronGeometry(.35),mat(0x45eaff,.25));
+ g.position.set(x,.65,z);g.castShadow=true;scene.add(g);gems.push(g);
+}
+function spawnGems(){
+ gems.forEach(g=>scene.remove(g));gems=[];
+ for(let i=0;i<7;i++)makeGem((Math.random()-.5)*23,(Math.random()-.5)*23);
+}
+
+function updateHud(){
+ document.getElementById("score").textContent=score;
+ document.getElementById("trophy").textContent=trophies;
+ document.getElementById("hpText").textContent=Math.max(0,Math.ceil(hp));
+ document.getElementById("health").style.width=Math.max(0,hp)+"%";
+}
+function say(t){
+ const el=document.getElementById("message");
+ el.textContent=t;
+ setTimeout(()=>{if(el.textContent===t)el.textContent=""},1300);
+}
+function startGame(){
+ hp=100;score=0;playing=true;superReady=true;
+ player.position.set(0,0,0);player.rotation.set(0,0,0);
+ spawnBots();spawnGems();updateHud();
+ document.getElementById("menu").style.display="none";
+ document.getElementById("result").style.display="none";
+ say("SAVAŞ BAŞLADI!");
+}
+function endGame(win){
+ playing=false;
+ document.getElementById("resultTitle").textContent=win?"ZAFER! 🏆":"OYUN BİTTİ";
+ document.getElementById("resultText").textContent=win?"Harika! Rakiplerini yendin.":"Bir sonraki savaşta daha güçlü ol!";
+ if(win)trophies++;
+ updateHud();
+ document.getElementById("result").style.display="flex";
+}
+
+function fire(target,damage=20,big=false){
+ const dir=new THREE.Vector3(target.x-player.position.x,0,target.z-player.position.z);
+ if(dir.length()<.01)return;
+ dir.normalize();
+ const mesh=new THREE.Mesh(
+  new THREE.SphereGeometry(big?.32:.16,12,12),
+  new THREE.MeshStandardMaterial({color:big?0xd85cff:0xffed70,emissive:big?0x7b22aa:0x997322})
+ );
+ mesh.position.set(player.position.x,1,player.position.z);
+ scene.add(mesh);
+ bullets.push({mesh,dir,life:2.2,damage,fromPlayer:true});
+ player.rotation.y=Math.atan2(dir.x,dir.z);
+}
+function playerShoot(){
+ const now=performance.now();
+ if(now-lastShot<280||!playing)return;
+ lastShot=now;
+ let target=bots[0];
+ let best=Infinity;
+ bots.forEach(b=>{
+  const d=player.position.distanceTo(b.position);
+  if(d<best){best=d;target=b;}
+ });
+ if(target)fire(target.position,25);
+}
+function useSuper(){
+ if(!playing||!superReady)return;
+ superReady=false;
+ say("SÜPER GÜÇ! ⚡");
+ bots.slice().forEach(b=>{
+  if(player.position.distanceTo(b.position)<7){
+   b.userData.hp-=65;
+   if(b.userData.hp<=0)killBot(b);
+  }
+ });
+ setTimeout(()=>superReady=true,5000);
+}
+
+function killBot(b){
+ scene.remove(b);
+ bots=bots.filter(x=>x!==b);
+ score+=1;trophies+=1;
+ makeGem(b.position.x,b.position.z);
+ updateHud();
+ say("RAKİP YENİLDİ!");
+ if(bots.length===0)endGame(true);
+}
+function damagePlayer(amount){
+ const now=performance.now();
+ if(now-lastDamage<450)return;
+ lastDamage=now;hp-=amount;updateHud();
+ if(hp<=0)endGame(false);
+}
+
+// Joystick
+const joy=document.getElementById("joystick");
+const stick=document.getElementById("stick");
+let joyId=null;
+function moveJoy(e){
+ const r=joy.getBoundingClientRect();
+ let dx=e.clientX-(r.left+r.width/2);
+ let dy=e.clientY-(r.top+r.height/2);
+ const max=42,len=Math.hypot(dx,dy);
+ if(len>max){dx=dx/len*max;dy=dy/len*max;}
+ joystick.x=dx/max;
+ joystick.y=dy/max;
+ stick.style.left=`calc(50% + ${dx}px)`;
+ stick.style.top=`calc(50% + ${dy}px)`;
+}
+joy.addEventListener("pointerdown",e=>{
+ e.preventDefault();joyId=e.pointerId;
+ joy.setPointerCapture(e.pointerId);moveJoy(e);
+});
+joy.addEventListener("pointermove",e=>{
+ if(e.pointerId===joyId)moveJoy(e);
+});
+function releaseJoy(e){
+ if(e.pointerId!==joyId)return;
+ joyId=null;joystick.x=0;joystick.y=0;
+ stick.style.left="50%";stick.style.top="50%";
+}
+joy.addEventListener("pointerup",releaseJoy);
+joy.addEventListener("pointercancel",releaseJoy);
+
+const shootBtn=document.getElementById("shoot");
+shootBtn.addEventListener("pointerdown",e=>{e.preventDefault();shooting=true;playerShoot();});
+shootBtn.addEventListener("pointerup",e=>{e.preventDefault();shooting=false;});
+shootBtn.addEventListener("pointercancel",()=>shooting=false);
+shootBtn.addEventListener("lostpointercapture",()=>shooting=false);
+document.getElementById("super").addEventListener("pointerdown",e=>{e.preventDefault();useSuper();});
+document.getElementById("start").addEventListener("click",startGame);
+document.getElementById("again").addEventListener("click",startGame);
+
+// Klavye desteği
+const keys={};
+addEventListener("keydown",e=>keys[e.key.toLowerCase()]=true);
+addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
+
+function updatePlayer(dt){
+ let x=joystick.x+(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);
+ let z=joystick.y+(keys.s||keys.arrowdown?1:0)-(keys.w||keys.arrowup?1:0);
+ const len=Math.hypot(x,z);
+ if(len>1){x/=len;z/=len;}
+ const speed=7;
+ player.position.x+=x*speed*dt;
+ player.position.z+=z*speed*dt;
+ player.position.x=THREE.MathUtils.clamp(player.position.x,-15.5,15.5);
+ player.position.z=THREE.MathUtils.clamp(player.position.z,-15.5,15.5);
+ if(Math.abs(x)+Math.abs(z)>.05)player.rotation.y=Math.atan2(x,z);
+ // Engellerle çarpışma
+ obstacles.forEach(([ox,oz,w,d])=>{
+  if(Math.abs(player.position.x-ox)<w/2+.65&&Math.abs(player.position.z-oz)<d/2+.65){
+   player.position.x-=x*speed*dt;
+   player.position.z-=z*speed*dt;
+  }
+ });
+ if(shooting)playerShoot();
+}
+
+function updateBots(dt){
+ bots.slice().forEach(b=>{
+  const dx=player.position.x-b.position.x;
+  const dz=player.position.z-b.position.z;
+  const dist=Math.hypot(dx,dz);
+  if(dist>2.2){
+   b.position.x+=dx/dist*2.3*dt;
+   b.position.z+=dz/dist*2.3*dt;
+   b.rotation.y=Math.atan2(dx,dz);
+  }else damagePlayer(8*dt);
+  b.userData.shootTimer-=dt;
+  if(dist<9&&b.userData.shootTimer<=0){
+   b.userData.shootTimer=1.5;
+   damagePlayer(7);
+  }
+  b.position.x=THREE.MathUtils.clamp(b.position.x,-15,15);
+  b.position.z=THREE.MathUtils.clamp(b.position.z,-15,15);
+ });
+}
+
+function updateBullets(dt){
+ bullets.slice().forEach(b=>{
+  b.mesh.position.x+=b.dir.x*13*dt;
+  b.mesh.position.z+=b.dir.z*13*dt;
+  b.life-=dt;
+  if(b.fromPlayer){
+   bots.slice().forEach(bot=>{
+    if(b.mesh.position.distanceTo(new THREE.Vector3(bot.position.x,1,bot.position.z))<.85){
+     bot.userData.hp-=b.damage;
+     scene.remove(b.mesh);bullets=bullets.filter(x=>x!==b);
+     if(bot.userData.hp<=0)killBot(bot);
+    }
+   });
+  }
+  if(b.life<=0||Math.abs(b.mesh.position.x)>18||Math.abs(b.mesh.position.z)>18){
+   scene.remove(b.mesh);bullets=bullets.filter(x=>x!==b);
+  }
+ });
+}
+function updateGems(dt){
+ gems.slice().forEach(g=>{
+  g.rotation.y+=dt*2;
+  g.rotation.x+=dt;
+  if(player.position.distanceTo(g.position)<1.25){
+   scene.remove(g);gems=gems.filter(x=>x!==g);
+   score+=1;updateHud();say("+1 MÜCEVHER 💎");
+   if(gems.length===0)spawnGems();
+  }
+ });
+}
+
+function animate(){
+ requestAnimationFrame(animate);
+ const dt=Math.min(clock.getDelta(),.04);
+ if(playing){
+  updatePlayer(dt);
+  updateBots(dt);
+  updateBullets(dt);
+  updateGems(dt);
+ }
+ // Kamera karakteri takip eder
+ camera.position.x+=(player.position.x-camera.position.x)*dt*2;
+ camera.position.z+=(player.position.z+17-camera.position.z)*dt*2;
+ camera.lookAt(player.position.x,0,player.position.z);
+ renderer.render(scene,camera);
+}
+animate();
+
+addEventListener("resize",()=>{
+ camera.aspect=innerWidth/innerHeight;
+ camera.updateProjectionMatrix();
+ renderer.setSize(innerWidth,innerHeight);
+});
+updateHud();
+</script>
+</body>
+</html>
